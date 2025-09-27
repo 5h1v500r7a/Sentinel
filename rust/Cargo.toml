@@ -1,0 +1,23 @@
+[package]
+name = "sentinel-launcher"
+version = "0.1.0"
+edition = "2021"
+description = "Sentinel Sandbox: policy-driven process launcher (Rust core over a C seccomp engine)"
+
+[[bin]]
+name = "sentinel-launcher"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.7"
+libc = "0.2"
+# Pinned transitive deps: newer indexmap/hashbrown releases require the
+# "edition2024" Cargo feature, which the rustc/cargo 1.75 shipped by
+# Ubuntu 24.04 (our target build environment) does not support yet.
+# Pinning here keeps the build reproducible on that toolchain.
+indexmap = "=2.2.6"
+hashbrown = "=0.14.5"
+
+[profile.release]
+panic = "abort"

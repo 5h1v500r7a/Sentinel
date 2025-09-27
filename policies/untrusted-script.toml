@@ -1,0 +1,45 @@
+# untrusted-script.toml
+# ----------------------
+# For: short-lived, CPU/file-bound programs you don't fully trust and
+# that have NO legitimate reason to touch the network, spawn other
+# processes, or debug anything (e.g. a user-submitted script in an
+# online code runner, a data-transform job on an untrusted input file).
+#
+# This is the strictest of the three bundled policies. If your program
+# gets killed under this policy, run `sentinel run` once with
+# default_action = "errno" (see bottom of this file) and check
+# logs/violations.jsonl to see exactly which syscall it needed, then
+# decide deliberately whether to add it here.
+
+name = "untrusted-script"
+
+# log-and-kill: block the syscall AND record exactly what was attempted.
+# This is almost always what you want during development.
+default_action = "log-and-kill"
+
+allowed_syscalls = [
+  # --- reading/writing files and basic memory management ---
+  "read", "write", "openat", "close", "fstat", "newfstatat", "lseek",
+  "mmap", "munmap", "mprotect", "brk",
+
+  # --- process bookkeeping the C runtime needs even for "no subprocess"
+  #     programs (these do NOT let the program spawn or exec anything;
+  #     they're bookkeeping for the one process that's already running) ---
+  "arch_prctl", "set_tid_address", "set_robust_list", "rseq",
+  "exit", "exit_group", "getrandom", "prlimit64", "sysinfo",
+  "readlinkat", "readlink", "uname",
+
+  # --- needed once, to launch the target program itself. See the
+  #     "Known limitation" section of README.md: a plain allow-list
+  #     cannot tell this ONE launch-time execve apart from a later
+  #     execve the target might attempt on its own. If your workload
+  #     must never re-exec anything after startup, that's an inherent
+  #     limitation of this technique, not a bug -- read the README. ---
+  "execve",
+]
+
+# Optional extra guard rails, independent of which syscalls are allowed.
+[limits]
+cpu_seconds = 5          # kill it if it burns more than 5s of CPU time
+address_space_mb = 256    # cap virtual memory at 256 MB
+open_files = 16

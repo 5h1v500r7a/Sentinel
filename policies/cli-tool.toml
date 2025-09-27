@@ -1,0 +1,37 @@
+# cli-tool.toml
+# --------------
+# For: a general-purpose command-line program you mostly trust (your own
+# build script, a familiar open-source CLI) where you mainly want a
+# safety net against catastrophic mistakes (accidentally reading SSH
+# keys, calling reboot(), etc.) rather than a tight lockdown. This policy
+# is deliberately the most permissive of the three, including allowing
+# `execve` for legitimate subprocess use (e.g. a build tool shelling out
+# to a compiler). Because of that, it will NOT catch a program that
+# spawns a shell -- see the "evil_shell" demo in tests/attack_syscalls
+# and the "Known limitation" section of README.md for why, and use
+# untrusted-script.toml or web-server.toml instead if that matters for
+# your use case.
+
+name = "cli-tool"
+default_action = "log-and-kill"
+
+allowed_syscalls = [
+  "read", "write", "openat", "close", "fstat", "newfstatat", "lseek",
+  "mmap", "munmap", "mprotect", "brk", "pread64", "pwrite64",
+  "arch_prctl", "set_tid_address", "set_robust_list", "rseq",
+  "exit", "exit_group", "getrandom", "prlimit64", "sysinfo",
+  "rt_sigaction", "rt_sigprocmask", "rt_sigreturn",
+  "clone", "clone3", "wait4", "waitid", "futex",
+  "getcwd", "chdir", "getdents64", "access", "faccessat", "faccessat2",
+  "readlink", "readlinkat", "dup", "dup2", "dup3", "pipe2",
+  "execve", "execveat", "fork", "vfork",
+  "ioctl", "fcntl", "statx", "unlink", "unlinkat", "rename", "renameat2",
+  "mkdir", "mkdirat", "chmod", "fchmod", "fchmodat",
+  "getuid", "geteuid", "getgid", "getegid", "getpid", "getppid",
+  "poll", "ppoll", "umask", "setpgid", "getpgrp", "rt_sigsuspend",
+]
+
+[limits]
+cpu_seconds = 300
+address_space_mb = 2048
+open_files = 256

@@ -1,0 +1,5 @@
+cargo:rustc-link-search=native=/mnt/c/sentinel-sandbox/sentinel-sandbox/c/build
+cargo:rustc-link-lib=dylib=sentinel_filter
+cargo:rustc-link-lib=dylib=seccomp
+cargo:rerun-if-changed=../c/seccomp_filter.c
+cargo:rerun-if-changed=../c/seccomp_filter.h

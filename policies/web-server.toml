@@ -1,0 +1,40 @@
+# web-server.toml
+# ----------------
+# For: a long-running network service (an HTTP API, a TCP daemon) that
+# legitimately needs sockets, epoll-style event loops, and threads/futexes
+# -- but still has NO business spawning shells, tracing other processes,
+# loading kernel modules, or mounting filesystems. This is the policy
+# shape you'd adapt for something like a Python/Go/Rust web service.
+
+name = "web-server"
+default_action = "log-and-kill"
+
+allowed_syscalls = [
+  # --- files & memory ---
+  "read", "write", "openat", "close", "fstat", "newfstatat", "lseek",
+  "mmap", "munmap", "mprotect", "brk", "pread64", "pwrite64",
+
+  # --- process/runtime bookkeeping ---
+  "arch_prctl", "set_tid_address", "set_robust_list", "rseq",
+  "exit", "exit_group", "getrandom", "prlimit64", "sysinfo",
+  "rt_sigaction", "rt_sigprocmask", "rt_sigreturn", "sigaltstack",
+  "readlinkat", "readlink", "uname",
+
+  # --- threading & event loops (typical for an async server) ---
+  "clone", "clone3", "futex", "sched_yield", "sched_getaffinity",
+  "epoll_create1", "epoll_ctl", "epoll_wait", "eventfd2",
+  "nanosleep", "clock_gettime", "clock_nanosleep", "gettid",
+
+  # --- networking: the whole point of a web server ---
+  "socket", "setsockopt", "getsockopt", "bind", "listen", "accept4",
+  "connect", "sendto", "recvfrom", "sendmsg", "recvmsg", "shutdown",
+  "getsockname", "getpeername",
+
+  # --- launching the process itself (see README's "Known limitation") ---
+  "execve",
+]
+
+[limits]
+cpu_seconds = 0            # no CPU cap -- it's meant to run indefinitely
+address_space_mb = 1024
+open_files = 1024
