@@ -10,8 +10,6 @@ process gets killed. That's basically the same trick Docker, Chrome,
 and systemd use under the hood to sandbox processes (seccomp-bpf), plus
 a bit of ptrace to get useful logs out of it.
 
-This is the first of three portfolio projects I'm putting together:
-
 1. **Sentinel Sandbox (this one)** — systems security / OS internals
 2. A red-teaming project — next up
 3. A blue-teaming project — after that
@@ -390,80 +388,3 @@ them, so here's what I actually ran against the compiled code:
 
 If you change anything, `python3 -m sentinel_cli.cli demo` re-runs the
 three core scenarios and will tell you fast if you broke something.
-
-## Where I'd take this next
-
-Roughly easiest to hardest:
-
-- More policy templates (a database process, a batch ML job, a Node
-  server), tested the same way as the three here.
-- Port the register-reading code to ARM64 (`regs.regs[8]` instead of
-  `orig_rax`) with a runtime arch check.
-- A "dry-run" mode that logs what would have been blocked without
-  actually killing anything, so building a new policy from real
-  traffic is less painful than reading raw strace output.
-- The big one, and the actual fix for the limitation above: swap
-  `SCMP_ACT_TRACE` + ptrace for `SECCOMP_RET_USER_NOTIF` +
-  `SCMP_FILTER_FLAG_NEW_LISTENER`, so a supervisor can inspect a
-  notified syscall's real argument values (like the path being passed
-  to execve) before deciding anything, which means "allow execve, but
-  only for stuff under /usr/bin/" becomes possible.
-- Linux namespaces alongside seccomp (`unshare`/`clone` with
-  `CLONE_NEWNET`/`CLONE_NEWPID`/etc.) for full container-style
-  isolation instead of just syscall filtering.
-
-## Talking about this in an interview
-
-A few ways to describe this that I'd actually stand behind (make sure
-you can answer a basic follow-up on anything you say here, interviewers
-notice the difference between someone who built it and someone
-reciting a summary):
-
-- "I built a Linux process sandbox from the kernel primitives up, seccomp-bpf for the filter and ptrace for logging, with a Rust layer on top for policy parsing."
-- "I hit a real bug where execve() resets signal handlers, which broke my first design. Fixed it by moving to a ptrace-based supervisor, which is what production sandboxes actually do for this exact reason."
-- "I can point to a specific, real limitation in my own tool, a name-based allow-list can't tell a target's own launch-time execve apart from a later one, and describe what the actual fix looks like."
-
-That last one especially. Being able to describe a weakness in your
-own project, unprompted and accurately, reads a lot better to a
-security-minded interviewer than insisting there isn't one.
-
-## Troubleshooting
-
-**`error while loading shared libraries: libsentinel_filter.so: cannot open shared object file`** -- the compiled C library isn't on the linker's search path. The Python CLI handles this for you automatically; if you're calling `sentinel-launcher` directly, export it yourself:
-```bash
-export LD_LIBRARY_PATH=$(pwd)/c/build:$LD_LIBRARY_PATH
-```
-
-**`unknown syscall name in policy: "..."`** -- typo, or a syscall that doesn't exist on this architecture/kernel. Check the spelling against `man 2 syscalls`.
-
-**Everything dies immediately, even a totally normal program** -- almost always a missing syscall from C runtime startup or the dynamic linker (common culprits: `readlinkat`, `uname`, `access`, `faccessat2`). Switch to `default_action = "errno"` temporarily and check `logs/violations.jsonl` for what's actually being asked for. Statically-linked binaries need noticeably fewer startup syscalls, which is why the demo binaries in this repo are all built with `-static`.
-
-**Rust build fails with `feature 'edition2024' is required`** -- some indirect dependency resolved to a version too new for an older cargo/rustc (this was built against the 1.75 that ships with Ubuntu 24.04's package manager). `rust/Cargo.toml` already pins `indexmap`/`hashbrown` for exactly this reason; if it happens again after adding a dependency, pin the offending one the same way, or just install a newer Rust via rustup.
-
-## License
-
-MIT. Use this however you want, including as a straight-up portfolio piece, you don't need to ask me.
-
-```
-MIT License
-
-Copyright (c) 2026
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
